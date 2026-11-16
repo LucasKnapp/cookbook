@@ -84,6 +84,17 @@ SPDX-License-Identifier: AGPL-3.0-only OR AGPL-3.0-or-later
                             }}
                         </label>
                     </li>
+                    <li>
+                        <input
+                            id="recipe-bring-export"
+                            v-model="bringEnabled"
+                            type="checkbox"
+                            class="checkbox"
+                        />
+                        <label for="recipe-bring-export">
+                            {{ t('cookbook', 'Enable Bring! shopping list export') }}
+                        </label>
+                    </li>
                 </ul>
             </fieldset>
         </NcAppSettingsSection>
@@ -241,6 +252,10 @@ const isOpen = ref(false);
  */
 const printImage = ref(false);
 /**
+ * @type {import('vue').Ref<boolean>}
+ */
+const bringEnabled = ref(false);
+/**
  * @type {import('vue').Ref<string>}
  */
 const recipeFolder = ref('');
@@ -284,6 +299,26 @@ watch(
                 t('cookbook','Could not set preference for image printing'),
             );
             printImage.value = oldVal;
+        }
+    },
+);
+
+watch(
+    () => bringEnabled.value,
+    async (newVal, oldVal) => {
+        // Avoid infinite loop on page load and when resetting value after failed submit
+        if (!writeChanges.value) {
+            return;
+        }
+        try {
+            await api.config.bringEnabled.update(newVal);
+            await legacyStore.refreshConfig();
+        } catch {
+            await showSimpleAlertModal(
+                t('cookbook', 'Error'),
+                t('cookbook', 'Could not set Bring! export setting'),
+            );
+            bringEnabled.value = oldVal;
         }
     },
 );
@@ -435,6 +470,7 @@ const handleShowSettings = () => {
     if (!config) return;
 
     printImage.value = config.print_image;
+    bringEnabled.value = config.bring_enabled === true;
     visibleInfoBlocks.value = visibleInfoBlocksDecode(config.visibleInfoBlocks);
     showFiltersInRecipeList.value =
         legacyStore.localSettings.showFiltersInRecipeList;
