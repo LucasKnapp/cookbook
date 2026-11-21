@@ -154,18 +154,36 @@ SPDX-License-Identifier: AGPL-3.0-only OR AGPL-3.0-or-later
                             class="section-title"
                         >
                             <span>{{ t('cookbook', 'Ingredients') }}</span>
-                            <NcButton
-                                v-if="scaledIngredients.length"
-                                class="copy-ingredients print-hidden"
-                                variant="tertiary"
-                                aria-label="t('cookbook', 'Copy ingredients to the clipboard')"
-                                :title="t('cookbook', 'Copy ingredients')"
-                                @click="copyIngredientsToClipboard"
-                            >
-                                <template #icon>
-                                    <ContentCopyIcon :size="20" />
-                                </template>
-                            </NcButton>
+                            <div class="section-actions print-hidden">
+                                <!-- Bring! Export Button -->
+                                <NcButton
+                                    v-if="
+                                        bringEnabled && scaledIngredients.length
+                                    "
+                                    variant="tertiary"
+                                    :aria-label="
+                                        t('cookbook', 'Export to Bring!')
+                                    "
+                                    :title="t('cookbook', 'Export to Bring!')"
+                                    @click="openBringModal"
+                                >
+                                    <template #icon>
+                                        <CartIcon :size="20" />
+                                    </template>
+                                </NcButton>
+
+                                <NcButton
+                                    class="copy-ingredients"
+                                    variant="tertiary"
+                                    aria-label="t('cookbook', 'Copy ingredients to the clipboard')"
+                                    :title="t('cookbook', 'Copy ingredients')"
+                                    @click="copyIngredientsToClipboard"
+                                >
+                                    <template #icon>
+                                        <ContentCopyIcon :size="20" />
+                                    </template>
+                                </NcButton>
+                            </div>
                         </h3>
                         <ul v-if="scaledIngredients.length">
                             <RecipeIngredient
@@ -355,12 +373,24 @@ SPDX-License-Identifier: AGPL-3.0-only OR AGPL-3.0-or-later
             </div>
         </div>
         <!-- RecipeView container -->
+        <!-- Bring! Mapping Dialog -->
+        <component
+            :is="BringMappingDialog"
+            v-if="showBringDialog"
+            :open="showBringDialog"
+            :recipe-name="recipe.name"
+            :ingredients="scaledIngredients"
+            @close="showBringDialog = false"
+            @update:open="(val) => (showBringDialog = val)"
+            @exported="onBringExported"
+        />
     </div>
 </template>
 
 <script setup lang="ts">
 import {
     computed,
+    defineAsyncComponent,
     getCurrentInstance,
     onMounted,
     onUnmounted,
@@ -374,6 +404,7 @@ import helpers from 'cookbook/js/helper';
 import normalizeMarkdown from 'cookbook/js/title-rename';
 import { showSimpleAlertModal } from 'cookbook/js/modals';
 import yieldCalculator from 'cookbook/js/yieldCalculator';
+import CartIcon from 'icons/Cart.vue';
 import ContentCopyIcon from 'icons/ContentCopy.vue';
 import NcButton from '@nextcloud/vue/components/NcButton';
 import { showError, showSuccess } from '@nextcloud/dialogs';
@@ -395,7 +426,32 @@ const t = window.t;
 const route = useRoute();
 const routeId = computed(() => String(route.params.id ?? ''));
 const router = useRouter();
+
+// ===================
+// Bring! Integration
+// ===================
+
+const BringMappingDialog = defineAsyncComponent(
+    () => import('../Bring/BringMappingDialog.vue'),
+);
+
+const showBringDialog = ref(false);
+
+const openBringModal = () => {
+    showBringDialog.value = true;
+};
+
+const onBringExported = (count: number) => {
+    showBringDialog.value = false;
+    showSuccess(
+        t('cookbook', '{count} ingredients exported to Bring!', { count }),
+    );
+};
+
 const legacyStore = useLegacyStore() as any;
+
+// Bring! export is opt-in per user (backend setting `bring_enabled`)
+const bringEnabled = computed(() => legacyStore.config?.bring_enabled === true);
 
 const log = getCurrentInstance()?.proxy?.$log ?? console;
 
@@ -435,6 +491,7 @@ let wakeLockSentinel: WakeLockSentinel | null = null;
 // ===================
 const recipe = computed<Recipe>(() => {
     const tmpRecipe: Recipe = {
+        name: '',
         description: '',
         ingredients: [],
         instructions: [],
@@ -452,6 +509,8 @@ const recipe = computed<Recipe>(() => {
         log.debug('Recipe is null');
         return tmpRecipe;
     }
+
+    tmpRecipe.name = legacyStore.recipe.name ?? '';
 
     if (legacyStore.recipe.description) {
         tmpRecipe.description = helpers.escapeHTML(
@@ -1124,6 +1183,12 @@ main {
 .section-title {
     display: flex;
     align-items: center;
+}
+
+.section-actions {
+    display: flex;
+    gap: 0.5rem;
+    margin-inline-start: auto;
 }
 
 .instructions {
