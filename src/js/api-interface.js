@@ -111,7 +111,9 @@ function updatePrintImageSetting(enabled) {
 }
 
 function updateBringEnabledSetting(enabled) {
-    return instance.post(`${baseUrl}/config`, { bring_enabled: enabled ? 1 : 0 });
+    return instance.post(`${baseUrl}/config`, {
+        bring_enabled: enabled ? 1 : 0,
+    });
 }
 
 function updateUpdateInterval(newInterval) {
