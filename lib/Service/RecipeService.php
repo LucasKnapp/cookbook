@@ -160,11 +160,11 @@ class RecipeService {
 	 */
 	public function checkRecipe(array $json): array {
 		if (!$json) {
-			throw new Exception('Recipe array was null');
+			throw new Exception($this->il10n->t('Recipe array was null'));
 		}
 
 		if (empty($json['name'])) {
-			throw new Exception('Field "name" is required');
+			throw new Exception($this->il10n->t('Field "name" is required'));
 		}
 
 		return $this->jsonFilter->apply($json);
@@ -347,23 +347,33 @@ class RecipeService {
 		$this->htmlDownloadService->downloadRecipe($url);
 
 		try {
-			$json = $this->recipeExtractionService->parse($this->htmlDownloadService->getDom(), $url);
+			$json = $this->recipeExtractionService->parse($this->htmlDownloadService->getDom());
 			$importedHtml = $this->htmlDownloadService->getDom()->saveHTML();
 		} catch (HtmlParsingException $ex) {
-			throw new ImportException($ex->getMessage(), null, $ex);
-		}
-
-		$json = $this->checkRecipe($json);
-
-		if (!$json) {
-			$this->logger->error('Importing parsers resulted in null recipe.'
-				. 'This is most probably a bug. Please report.');
-			throw new ImportException($this->il10n->t('No recipe data found. This is a bug'));
+			throw new ImportException($ex->getMessage(), null, $ex, step: 'extract_recipe');
 		}
 
 		$json['url'] = $url;
 
-		return $this->addRecipe($json, $importedHtml);
+		try {
+			$json = $this->checkRecipe($json);
+		} catch (Exception $ex) {
+			throw new ImportException($ex->getMessage(), null, $ex, step: 'extract_recipe');
+		}
+
+		if (!$json) {
+			$this->logger->error('Importing parsers resulted in null recipe.'
+				. 'This is most probably a bug. Please report.');
+			throw new ImportException($this->il10n->t('No recipe data found. This is a bug'), step: 'extract_recipe');
+		}
+
+		$this->logger->info('Recipe extracted: name="{name}"', ['name' => $json['name']]);
+
+		try {
+			return $this->addRecipe($json, $importedHtml);
+		} catch (NoRecipeNameGivenException $ex) {
+			throw new ImportException($ex->getMessage(), null, $ex, step: 'extract_recipe');
+		}
 	}
 
 	/**
