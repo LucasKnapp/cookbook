@@ -9,4 +9,5 @@ export interface SettingsConfig {
 	visibleInfoBlocks: Record<string, boolean>;
 	update_interval: number;
 	folder: string;
+	bring_enabled?: boolean;
 }
