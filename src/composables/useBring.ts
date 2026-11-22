@@ -12,11 +12,12 @@
  */
 
 import axios from '@nextcloud/axios';
+import { generateUrl } from '@nextcloud/router';
 import { ref } from 'vue';
 
 const t = window.t;
 
-const BASE_URL = '/apps/cookbook/webapp/bring';
+const BASE_URL = `${generateUrl('apps/cookbook')}/webapp/bring`;
 
 /**
  * A Bring! shopping list.
